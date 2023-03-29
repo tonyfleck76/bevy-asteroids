@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
+use bevy::sprite::collide_aabb::collide;
 use bevy::time::common_conditions::on_fixed_timer;
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy::log;
@@ -10,8 +11,17 @@ const BACKGROUND_COLOR: Color = Color::rgb(0.1, 0.1, 0.1);
 
 const LASER_SPEED: f32 = 10.0;
 
+trait HitBox {
+    fn getBox(&self) -> Vec2;
+}
+
 #[derive(Component)]
 struct Player;
+impl HitBox for Player {
+    fn getBox(&self) -> Vec2 {
+        Vec2::new(32.0, 48.0)
+    }
+}
 
 #[derive(Component)]
 struct Laser{
@@ -21,8 +31,16 @@ struct Laser{
 #[derive(Component)]
 struct Asteroid {
     velocity: Vec2,
-    rotation: f32
+    rotation: f32,
+    width: f32,
+    height: f32
 }
+impl HitBox for Asteroid {
+    fn getBox(&self) -> Vec2 {
+        Vec2::new(self.width, self.height)
+    }
+}
+
 
 struct FireEvent;
 
@@ -46,6 +64,8 @@ fn main() {
         .add_system(laser_movement)
         .add_system(spawn_asteroid.run_if(on_fixed_timer(Duration::from_secs_f32(1.0))))
         .add_system(asteroid_movement)
+        .add_system(check_player_collisions)
+        .add_system(check_laser_collisions)
         .run();
 }
 
@@ -143,17 +163,26 @@ fn spawn_asteroid(mut commands: Commands,  windows: Query<&Window, With<PrimaryW
 
     let trajectory = (Vec2::new(spawn_x, spawn_y) - Vec2::new(target_x, target_y)).normalize();
 
+    let asteroid_type = random.gen_range(1..5);
+    let asteroid_size = match asteroid_type {
+        1 | 3 => 48.0,
+        2 | 4 => 32.0,
+        _ => 0.0
+    };
+
     commands.spawn(SpriteBundle {
         transform: Transform {
             translation: Vec3::new(spawn_coords.x, spawn_coords.y, 0.0),
             ..Default::default()
         },
-        texture: asset_server.load(format!("sprites/meteor/{}.png", random.gen_range(1..5))),
+        texture: asset_server.load(format!("sprites/meteor/{}.png", asteroid_type)),
         ..Default::default()
     })
     .insert(Asteroid { 
         velocity: Vec2::new(trajectory.x * speed, trajectory.y * speed),
-        rotation: random.gen_range(-0.1..0.1)
+        rotation: random.gen_range(-0.1..0.1),
+        width: asteroid_size,
+        height: asteroid_size
     });
 }
 
@@ -181,4 +210,37 @@ fn calculate_angle(pos1: Vec2, pos2: Vec2) -> f32 {
 
 fn normalize_coords_in_window(window: &Window, coords: Vec3) -> Vec2 {
     Vec2::new((window.width() / 2.) - coords.x, (window.height() / 2.0) - coords.y)
+}
+
+fn check_player_collisions(
+    mut commands: Commands,
+    asteroid_query: Query<(Entity, &Transform, &Asteroid), Without<Player>>,
+    player_query: Query<(&Transform, &Player), Without<Asteroid>>
+) {
+    let (player_transform, player) = player_query.single();
+
+    for (asteroid_entity, asteroid_transform, asteroid) in asteroid_query.iter() {
+        let player_collision = collide(player_transform.translation, player.getBox(), asteroid_transform.translation, asteroid.getBox());
+
+        if player_collision.is_some() {
+            commands.entity(asteroid_entity).despawn();
+        }
+    }
+}
+
+fn check_laser_collisions(
+    mut commands: Commands,
+    asteroid_query: Query<(Entity, &Transform, &Asteroid), Without<Laser>>,
+    laser_query: Query<(Entity, &Transform), (With<Laser>, Without<Asteroid>)>
+) {
+    for (asteroid_entity, asteroid_transform, asteroid) in asteroid_query.iter() {
+        for (laser_entity, laser_transform) in laser_query.iter() {
+            let collision = collide(laser_transform.translation, laser_transform.scale.truncate(), asteroid_transform.translation, asteroid.getBox());
+
+            if collision.is_some() {
+                commands.entity(asteroid_entity).despawn();
+                commands.entity(laser_entity).despawn();
+            }
+        }
+    }
 }

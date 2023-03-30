@@ -11,6 +11,9 @@ const BACKGROUND_COLOR: Color = Color::rgb(0.1, 0.1, 0.1);
 
 const LASER_SPEED: f32 = 10.0;
 
+const SCOREBOARD_FONT_SIZE: f32 = 40.0;
+const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
+
 trait HitBox {
     fn getBox(&self) -> Vec2;
 }
@@ -23,6 +26,11 @@ impl HitBox for Player {
     }
 }
 
+#[derive(Resource)]
+struct Scoreboard {
+    score: usize
+}
+
 #[derive(Component)]
 struct Laser{
     velocity: Vec2
@@ -30,7 +38,8 @@ struct Laser{
 
 #[derive(Component)]
 struct Asteroid {
-    velocity: Vec2,
+    trajectory: Vec2,
+    speed: f32,
     rotation: f32,
     width: f32,
     height: f32
@@ -58,6 +67,7 @@ fn main() {
         .add_event::<FireEvent>()
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_player)
+        .add_startup_system(setup_scoreboard)
         .add_system(aiming_handler)
         .add_system(shooting_handler)
         .add_system(shoot)
@@ -66,6 +76,7 @@ fn main() {
         .add_system(asteroid_movement)
         .add_system(check_player_collisions)
         .add_system(check_laser_collisions)
+        .add_system(update_scoreboard)
         .run();
 }
 
@@ -83,6 +94,29 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .insert(Player);
+}
+
+fn setup_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font: Handle<Font> = asset_server.load("fonts/Excluded.ttf");
+    commands.spawn(
+        TextBundle::from_sections([
+            TextSection::new(
+                "Score: ",
+                TextStyle { font: font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE }
+            ),
+            TextSection::from_style(TextStyle { font: font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE })
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: SCOREBOARD_TEXT_PADDING,
+                left: SCOREBOARD_TEXT_PADDING,
+                ..default()
+            },
+            ..default()
+        })
+    );
+    commands.insert_resource(Scoreboard { score: 0 })
 }
 
 fn aiming_handler(windows: Query<&Window, With<PrimaryWindow>>, mut player_sprite: Query<&mut Transform, With<Player>>) {
@@ -179,7 +213,8 @@ fn spawn_asteroid(mut commands: Commands,  windows: Query<&Window, With<PrimaryW
         ..Default::default()
     })
     .insert(Asteroid { 
-        velocity: Vec2::new(trajectory.x * speed, trajectory.y * speed),
+        trajectory,
+        speed,
         rotation: random.gen_range(-0.1..0.1),
         width: asteroid_size,
         height: asteroid_size
@@ -197,7 +232,7 @@ fn asteroid_movement(mut commands: Commands, windows: Query<&Window, With<Primar
            coords.y < -50.0 {
                 commands.entity(entity).despawn();
         } else {
-            transform.translation += Vec3::new(asteroid.velocity.x, asteroid.velocity.y, 0.0);
+            transform.translation += Vec3::new(asteroid.trajectory.x * asteroid.speed, asteroid.trajectory.y * asteroid.speed, 0.0);
             transform.rotate_z(asteroid.rotation);
         }
     }
@@ -230,6 +265,7 @@ fn check_player_collisions(
 
 fn check_laser_collisions(
     mut commands: Commands,
+    mut scoreboard: ResMut<Scoreboard>,
     asteroid_query: Query<(Entity, &Transform, &Asteroid), Without<Laser>>,
     laser_query: Query<(Entity, &Transform), (With<Laser>, Without<Asteroid>)>
 ) {
@@ -238,9 +274,15 @@ fn check_laser_collisions(
             let collision = collide(laser_transform.translation, laser_transform.scale.truncate(), asteroid_transform.translation, asteroid.getBox());
 
             if collision.is_some() {
+                scoreboard.score += asteroid.speed as usize;
                 commands.entity(asteroid_entity).despawn();
                 commands.entity(laser_entity).despawn();
             }
         }
     }
+}
+
+fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+    let mut text = query.single_mut();
+    text.sections[1].value = scoreboard.score.to_string();
 }

@@ -8,7 +8,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy::log;
 use rand::Rng;
 
-const PLAYER_LIVES: u8 = 3;
+const PLAYER_LIVES: u8 = 1;
 
 const BACKGROUND_COLOR: Color = Color::rgb(0.1, 0.1, 0.1);
 
@@ -62,6 +62,9 @@ struct Life {
     counter: u8
 }
 
+#[derive(Component)]
+struct GameObject;
+
 
 struct FireEvent;
 
@@ -69,8 +72,17 @@ struct PlayerHitEvent;
 
 struct GameOverEvent;
 
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum AppState {
+    #[default]
+    InGame,
+    Paused,
+    GameOver
+}
+
 fn main() {
     App::new()
+        // Default and window setup
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Asteroids!".into(),
@@ -80,24 +92,36 @@ fn main() {
             ..default()
         }))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
+        // State
+        .add_state::<AppState>()
+        // Events
         .add_event::<FireEvent>()
         .add_event::<PlayerHitEvent>()
         .add_event::<GameOverEvent>()
+        // Base systems
         .add_startup_system(setup_camera)
-        .add_startup_system(spawn_player)
-        .add_startup_system(setup_scoreboard)
-        .add_startup_system(setup_life_counter)
-        .add_system(aiming_handler)
-        .add_system(shooting_handler)
-        .add_system(shoot)
-        .add_system(laser_movement)
-        .add_system(spawn_asteroid.run_if(on_fixed_timer(Duration::from_secs_f32(1.0))))
-        .add_system(asteroid_movement)
-        .add_system(check_player_collisions)
-        .add_system(check_laser_collisions)
-        .add_system(update_scoreboard)
-        .add_system(update_life_counter)
-        .add_system(game_over_listener)
+        // Setup new game
+        .add_system(spawn_player.in_schedule(OnEnter(AppState::InGame)))
+        .add_system(setup_scoreboard.in_schedule(OnEnter(AppState::InGame)))
+        .add_system(setup_life_counter.in_schedule(OnEnter(AppState::InGame)))
+        // Update in game
+        .add_system(aiming_handler.in_set(OnUpdate(AppState::InGame)))
+        .add_system(shooting_handler.in_set(OnUpdate(AppState::InGame)))
+        .add_system(shoot.in_set(OnUpdate(AppState::InGame)))
+        .add_system(laser_movement.in_set(OnUpdate(AppState::InGame)))
+        .add_system(spawn_asteroid.in_set(OnUpdate(AppState::InGame)).run_if(on_fixed_timer(Duration::from_secs_f32(1.0))))
+        .add_system(asteroid_movement.in_set(OnUpdate(AppState::InGame)))
+        .add_system(check_player_collisions.in_set(OnUpdate(AppState::InGame)))
+        .add_system(check_laser_collisions.in_set(OnUpdate(AppState::InGame)))
+        .add_system(update_scoreboard.in_set(OnUpdate(AppState::InGame)))
+        .add_system(update_life_counter.in_set(OnUpdate(AppState::InGame)))
+        .add_system(game_over_listener.in_set(OnUpdate(AppState::InGame)))
+        // Setup game over
+        .add_system(show_game_over_screen.in_schedule(OnEnter(AppState::GameOver)))
+        // Game Over Listener
+        .add_system(play_again_listener.in_set(OnUpdate(AppState::GameOver)))
+        // Clean up game over
+        .add_system(clear_game_over.in_schedule(OnExit(AppState::GameOver)))
         .run();
 }
 
@@ -114,7 +138,8 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
             texture: asset_server.load("sprites/ship_sidesA.png"),
             ..Default::default()
         })
-        .insert(Player { lives: PLAYER_LIVES });
+        .insert(Player { lives: PLAYER_LIVES })
+        .insert(GameObject);
 }
 
 fn setup_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -136,7 +161,8 @@ fn setup_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ..default()
         })
-    );
+    )
+    .insert(GameObject);
     commands.insert_resource(Scoreboard { score: 0 })
 }
 
@@ -155,7 +181,8 @@ fn setup_life_counter(mut commands: Commands, windows: Query<&Window, With<Prima
                 texture: life_sprite.clone(),
                 ..Default::default()
             })
-            .insert(Life { counter: life });
+            .insert(Life { counter: life })
+            .insert(GameObject);
     }
 }
 
@@ -193,7 +220,8 @@ fn shoot(mut commands: Commands, mut fire_reader: EventReader<FireEvent>, player
                     texture: asset_server.load("sprites/effect_yellow.png"),
                     ..Default::default()
                 })
-                .insert(Laser { velocity: Vec2::new(trajectory.x * LASER_SPEED, trajectory.y * LASER_SPEED) });
+                .insert(Laser { velocity: Vec2::new(trajectory.x * LASER_SPEED, trajectory.y * LASER_SPEED) })
+                .insert(GameObject);
         }
     }
 }
@@ -258,7 +286,8 @@ fn spawn_asteroid(mut commands: Commands,  windows: Query<&Window, With<PrimaryW
         rotation: random.gen_range(-0.1..0.1),
         width: asteroid_size,
         height: asteroid_size
-    });
+    })
+    .insert(GameObject);
 }
 
 fn asteroid_movement(mut commands: Commands, windows: Query<&Window, With<PrimaryWindow>>, mut asteroid_transforms: Query<(Entity, &mut Transform, &Asteroid)>) {
@@ -360,34 +389,97 @@ fn update_life_counter(
                     },
                     texture: lost_life_image.clone(),
                     ..Default::default()
-                });
+                })
+                .insert(GameObject);
             }
         }
     }
 }
 
 fn game_over_listener(
-    mut commands: Commands,
-    scoreboard_query: Res<Scoreboard>,
-    entities_query: Query<Entity>,
-    asset_server: Res<AssetServer>,
+    mut next_state: ResMut<NextState<AppState>>,
     mut game_over_reader: EventReader<GameOverEvent>
 ) {
     if game_over_reader.iter().next().is_some() {
-        let score = scoreboard_query.score;
+        next_state.set(AppState::GameOver);
+    }
+}
 
-        for entity in entities_query.iter() {
-            commands.entity(entity).despawn();
-        }
+fn show_game_over_screen(
+    mut commands: Commands,
+    scoreboard: Res<Scoreboard>,
+    entities_query: Query<Entity, With<GameObject>>,
+    asset_server: Res<AssetServer>
+) {
+    let score = scoreboard.score;
 
-        let font: Handle<Font> = asset_server.load("fonts/Excluded.ttf");
-        let italic_font: Handle<Font> = asset_server.load("fonts/ExcludedItalic.ttf");
-        commands.spawn(TextBundle::from_sections(
-            [
-                TextSection::new("Game Over.", TextStyle { font: italic_font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE }),
-                TextSection::new(format!("Final score: {}", score), TextStyle { font: font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE }),
-                TextSection::new("Click anywhere to play again.", TextStyle { font: font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE })
-            ]
-        ));
+    for entity in entities_query.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    commands.remove_resource::<Scoreboard>();
+
+    let font: Handle<Font> = asset_server.load("fonts/Excluded.ttf");
+    let italic_font: Handle<Font> = asset_server.load("fonts/ExcludedItalic.ttf");
+    commands.spawn(TextBundle::from_section(
+        "Game Over", 
+        TextStyle { font: italic_font.clone(), font_size: 60.0, color: Color::WHITE }
+    ).with_style(Style {
+        display: Display::Flex,
+        position_type: PositionType::Absolute,
+        position: UiRect {
+            top: Val::Px(300.0),
+            left: Val::Px(225.0),
+            ..default()
+        },
+        ..default()
+    }))
+    .insert(GameObject);
+
+    commands.spawn(TextBundle::from_section(
+        format!("Final score: {}", score), TextStyle { font: font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE }
+    ).with_style(Style {
+        display: Display::Flex,
+        position_type: PositionType::Absolute,
+        position: UiRect {
+            top: Val::Px(400.0),
+            left: Val::Px(225.0),
+            ..default()
+        },
+        ..default()
+    }))
+    .insert(GameObject);
+
+    commands.spawn(TextBundle::from_section(
+        "Click anywhere to play again.",
+        TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE }
+    ).with_style(Style {
+        display: Display::Flex,
+        position_type: PositionType::Absolute,
+        position: UiRect {
+            top: Val::Px(450.0),
+            left: Val::Px(175.0),
+            ..default()
+        },
+        ..default()
+    }))
+    .insert(GameObject);
+}
+
+fn play_again_listener(
+    buttons: Res<Input<MouseButton>>,
+    mut next_state: ResMut<NextState<AppState>>
+) {
+    if buttons.just_pressed(MouseButton::Left) {
+        next_state.set(AppState::InGame);
+    }
+}
+
+fn clear_game_over (
+    mut commands: Commands,
+    entities_query: Query<Entity, With<GameObject>>
+) {
+    for entity in entities_query.iter() {
+        commands.entity(entity).despawn();
     }
 }

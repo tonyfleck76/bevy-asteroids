@@ -8,7 +8,7 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy::log;
 use rand::Rng;
 
-const PLAYER_LIVES: u8 = 1;
+const PLAYER_LIVES: u8 = 3;
 
 const BACKGROUND_COLOR: Color = Color::rgb(0.1, 0.1, 0.1);
 

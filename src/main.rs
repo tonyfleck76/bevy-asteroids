@@ -1,4 +1,5 @@
 use std::f32::consts::PI;
+use std::fmt;
 use std::time::Duration;
 
 use bevy::sprite::collide_aabb::collide;
@@ -7,21 +8,27 @@ use bevy::{prelude::*, window::PrimaryWindow};
 use bevy::log;
 use rand::Rng;
 
+const PLAYER_LIVES: u8 = 3;
+
 const BACKGROUND_COLOR: Color = Color::rgb(0.1, 0.1, 0.1);
 
 const LASER_SPEED: f32 = 10.0;
 
 const SCOREBOARD_FONT_SIZE: f32 = 40.0;
 const SCOREBOARD_TEXT_PADDING: Val = Val::Px(5.0);
+const LIFE_PADDING: f32 = 25.0;
 
 trait HitBox {
-    fn getBox(&self) -> Vec2;
+    fn get_box(&self) -> Vec2;
 }
 
 #[derive(Component)]
-struct Player;
+struct Player {
+    lives: u8
+}
+
 impl HitBox for Player {
-    fn getBox(&self) -> Vec2 {
+    fn get_box(&self) -> Vec2 {
         Vec2::new(32.0, 48.0)
     }
 }
@@ -45,13 +52,22 @@ struct Asteroid {
     height: f32
 }
 impl HitBox for Asteroid {
-    fn getBox(&self) -> Vec2 {
+    fn get_box(&self) -> Vec2 {
         Vec2::new(self.width, self.height)
     }
 }
 
+#[derive(Component)]
+struct Life {
+    counter: u8
+}
+
 
 struct FireEvent;
+
+struct PlayerHitEvent;
+
+struct GameOverEvent;
 
 fn main() {
     App::new()
@@ -65,9 +81,12 @@ fn main() {
         }))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_event::<FireEvent>()
+        .add_event::<PlayerHitEvent>()
+        .add_event::<GameOverEvent>()
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_player)
         .add_startup_system(setup_scoreboard)
+        .add_startup_system(setup_life_counter)
         .add_system(aiming_handler)
         .add_system(shooting_handler)
         .add_system(shoot)
@@ -77,6 +96,8 @@ fn main() {
         .add_system(check_player_collisions)
         .add_system(check_laser_collisions)
         .add_system(update_scoreboard)
+        .add_system(update_life_counter)
+        .add_system(game_over_listener)
         .run();
 }
 
@@ -93,7 +114,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
             texture: asset_server.load("sprites/ship_sidesA.png"),
             ..Default::default()
         })
-        .insert(Player);
+        .insert(Player { lives: PLAYER_LIVES });
 }
 
 fn setup_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -117,6 +138,25 @@ fn setup_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
     );
     commands.insert_resource(Scoreboard { score: 0 })
+}
+
+fn setup_life_counter(mut commands: Commands, windows: Query<&Window, With<PrimaryWindow>>, asset_server: Res<AssetServer>) {
+    let life_sprite: Handle<Image> = asset_server.load("sprites/life.png");
+    let window = windows.get_single().unwrap();
+
+    for life in 1..PLAYER_LIVES + 1 {
+        let offset = LIFE_PADDING * life as f32;
+        commands
+            .spawn(SpriteBundle {
+                transform: Transform {
+                    translation: Vec3::new((window.width() / 2.0) - offset, (window.height() / 2.0) - LIFE_PADDING, 1.0),
+                    ..Default::default()
+                },
+                texture: life_sprite.clone(),
+                ..Default::default()
+            })
+            .insert(Life { counter: life });
+    }
 }
 
 fn aiming_handler(windows: Query<&Window, With<PrimaryWindow>>, mut player_sprite: Query<&mut Transform, With<Player>>) {
@@ -250,15 +290,17 @@ fn normalize_coords_in_window(window: &Window, coords: Vec3) -> Vec2 {
 fn check_player_collisions(
     mut commands: Commands,
     asteroid_query: Query<(Entity, &Transform, &Asteroid), Without<Player>>,
-    player_query: Query<(&Transform, &Player), Without<Asteroid>>
+    player_query: Query<(&Transform, &Player), Without<Asteroid>>,
+    mut player_hit_writer: EventWriter<PlayerHitEvent>
 ) {
     let (player_transform, player) = player_query.single();
 
     for (asteroid_entity, asteroid_transform, asteroid) in asteroid_query.iter() {
-        let player_collision = collide(player_transform.translation, player.getBox(), asteroid_transform.translation, asteroid.getBox());
+        let player_collision = collide(player_transform.translation, player.get_box(), asteroid_transform.translation, asteroid.get_box());
 
         if player_collision.is_some() {
             commands.entity(asteroid_entity).despawn();
+            player_hit_writer.send(PlayerHitEvent);
         }
     }
 }
@@ -271,7 +313,7 @@ fn check_laser_collisions(
 ) {
     for (asteroid_entity, asteroid_transform, asteroid) in asteroid_query.iter() {
         for (laser_entity, laser_transform) in laser_query.iter() {
-            let collision = collide(laser_transform.translation, laser_transform.scale.truncate(), asteroid_transform.translation, asteroid.getBox());
+            let collision = collide(laser_transform.translation, laser_transform.scale.truncate(), asteroid_transform.translation, asteroid.get_box());
 
             if collision.is_some() {
                 scoreboard.score += asteroid.speed as usize;
@@ -285,4 +327,67 @@ fn check_laser_collisions(
 fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
     let mut text = query.single_mut();
     text.sections[1].value = scoreboard.score.to_string();
+}
+
+fn update_life_counter(
+    mut commands: Commands,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mut player_query: Query<&mut Player>,
+    mut life_query: Query<(Entity, &Life)>,
+    asset_server: Res<AssetServer>,
+    mut player_hit_reader: EventReader<PlayerHitEvent>,
+    mut game_over_writer: EventWriter<GameOverEvent>
+) {
+    let lost_life_image: Handle<Image> = asset_server.load("sprites/lost_life.png");
+    let window = windows.get_single().unwrap();
+
+    if player_hit_reader.iter().next().is_some() {
+        let mut player = player_query.get_single_mut().unwrap();
+        player.lives -= 1;
+
+        if player.lives == 0 {
+            game_over_writer.send(GameOverEvent);
+        }
+
+        for (entity, life) in life_query.iter_mut() {
+            if life.counter > player.lives {
+                commands.entity(entity).despawn();
+                commands.spawn(SpriteBundle {
+                    transform: Transform {
+                        translation: Vec3::new((window.width() / 2.0) - (life.counter as f32 * LIFE_PADDING), (window.height() / 2.0) - LIFE_PADDING, 1.0),
+                        scale: Vec3::new(0.6, 0.6, 1.0),
+                        ..Default::default()
+                    },
+                    texture: lost_life_image.clone(),
+                    ..Default::default()
+                });
+            }
+        }
+    }
+}
+
+fn game_over_listener(
+    mut commands: Commands,
+    scoreboard_query: Res<Scoreboard>,
+    entities_query: Query<Entity>,
+    asset_server: Res<AssetServer>,
+    mut game_over_reader: EventReader<GameOverEvent>
+) {
+    if game_over_reader.iter().next().is_some() {
+        let score = scoreboard_query.score;
+
+        for entity in entities_query.iter() {
+            commands.entity(entity).despawn();
+        }
+
+        let font: Handle<Font> = asset_server.load("fonts/Excluded.ttf");
+        let italic_font: Handle<Font> = asset_server.load("fonts/ExcludedItalic.ttf");
+        commands.spawn(TextBundle::from_sections(
+            [
+                TextSection::new("Game Over.", TextStyle { font: italic_font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE }),
+                TextSection::new(format!("Final score: {}", score), TextStyle { font: font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE }),
+                TextSection::new("Click anywhere to play again.", TextStyle { font: font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE })
+            ]
+        ));
+    }
 }

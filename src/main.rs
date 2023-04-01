@@ -1,5 +1,4 @@
 use std::f32::consts::PI;
-use std::fmt;
 use std::time::Duration;
 
 use bevy::sprite::collide_aabb::collide;
@@ -38,6 +37,11 @@ struct Scoreboard {
     score: usize
 }
 
+#[derive(Resource)]
+struct GameState {
+    paused: bool
+}
+
 #[derive(Component)]
 struct Laser{
     velocity: Vec2
@@ -64,6 +68,9 @@ struct Life {
 
 #[derive(Component)]
 struct GameObject;
+
+#[derive(Component)]
+struct PausedText;
 
 
 struct FireEvent;
@@ -101,21 +108,34 @@ fn main() {
         // Base systems
         .add_startup_system(setup_camera)
         // Setup new game
-        .add_system(spawn_player.in_schedule(OnEnter(AppState::InGame)))
-        .add_system(setup_scoreboard.in_schedule(OnEnter(AppState::InGame)))
-        .add_system(setup_life_counter.in_schedule(OnEnter(AppState::InGame)))
+        .add_systems(
+            (
+                setup_game_state,
+                spawn_player,
+                setup_scoreboard,
+                setup_life_counter
+            )
+            .in_schedule(OnEnter(AppState::InGame))
+        )
         // Update in game
-        .add_system(aiming_handler.in_set(OnUpdate(AppState::InGame)))
-        .add_system(shooting_handler.in_set(OnUpdate(AppState::InGame)))
-        .add_system(shoot.in_set(OnUpdate(AppState::InGame)))
-        .add_system(laser_movement.in_set(OnUpdate(AppState::InGame)))
-        .add_system(spawn_asteroid.in_set(OnUpdate(AppState::InGame)).run_if(on_fixed_timer(Duration::from_secs_f32(1.0))))
-        .add_system(asteroid_movement.in_set(OnUpdate(AppState::InGame)))
-        .add_system(check_player_collisions.in_set(OnUpdate(AppState::InGame)))
-        .add_system(check_laser_collisions.in_set(OnUpdate(AppState::InGame)))
-        .add_system(update_scoreboard.in_set(OnUpdate(AppState::InGame)))
-        .add_system(update_life_counter.in_set(OnUpdate(AppState::InGame)))
-        .add_system(game_over_listener.in_set(OnUpdate(AppState::InGame)))
+        .add_systems(
+            (
+                aiming_handler,
+                shooting_handler,
+                shoot,
+                laser_movement,
+                spawn_asteroid.run_if(on_fixed_timer(Duration::from_secs_f32(1.0))),
+                asteroid_movement,
+                check_player_collisions,
+                check_laser_collisions,
+                update_scoreboard,
+                update_life_counter,
+                game_over_listener
+            )
+            .distributive_run_if(is_running)
+            .in_set(OnUpdate(AppState::InGame))
+        )
+        .add_system(pause_handler.in_set(OnUpdate(AppState::InGame)))
         // Setup game over
         .add_system(show_game_over_screen.in_schedule(OnEnter(AppState::GameOver)))
         // Game Over Listener
@@ -123,6 +143,10 @@ fn main() {
         // Clean up game over
         .add_system(clear_game_over.in_schedule(OnExit(AppState::GameOver)))
         .run();
+}
+
+fn is_running(game_state: Res<GameState>) -> bool {
+    !game_state.paused
 }
 
 fn setup_camera(mut commands: Commands) {
@@ -186,6 +210,10 @@ fn setup_life_counter(mut commands: Commands, windows: Query<&Window, With<Prima
     }
 }
 
+fn setup_game_state(mut commands: Commands) {
+    commands.insert_resource(GameState { paused: false });
+}
+
 fn aiming_handler(windows: Query<&Window, With<PrimaryWindow>>, mut player_sprite: Query<&mut Transform, With<Player>>) {
     let window = windows.get_single().unwrap();
 
@@ -202,6 +230,39 @@ fn aiming_handler(windows: Query<&Window, With<PrimaryWindow>>, mut player_sprit
 fn shooting_handler(buttons: Res<Input<MouseButton>>, mut fire_writer: EventWriter<FireEvent>) {
     if buttons.just_pressed(MouseButton::Left) {
         fire_writer.send(FireEvent);
+    }
+}
+
+fn pause_handler(
+    mut commands: Commands, 
+    keyboard_input: Res<Input<KeyCode>>, 
+    mut game_state: ResMut<GameState>,
+    paused_text_query: Query<Entity, With<PausedText>>,
+    asset_server: Res<AssetServer>
+) {
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        if !game_state.paused {
+            commands.spawn(TextBundle::from_section(
+                "Paused", 
+                TextStyle { font: asset_server.load("fonts/ExcludedItalic.ttf"), font_size: 60.0, color: Color::WHITE }
+            ).with_style(Style {
+                display: Display::Flex,
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    top: Val::Px(200.0),
+                    left: Val::Px(275.0),
+                    ..default()
+                },
+                ..default()
+            }))
+            .insert(PausedText);
+    
+            game_state.paused = true;
+        } else {
+            let entity = paused_text_query.get_single().unwrap();
+            commands.entity(entity).despawn();
+            game_state.paused = false;
+        }
     }
 }
 

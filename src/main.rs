@@ -39,6 +39,8 @@ struct Scoreboard {
 
 #[derive(Resource)]
 struct GameState {
+    asteroid_rate_increase_timer: Timer,
+    asteroid_spawn_timer: Timer,
     paused: bool
 }
 
@@ -124,7 +126,8 @@ fn main() {
                 shooting_handler,
                 shoot,
                 laser_movement,
-                spawn_asteroid.run_if(on_fixed_timer(Duration::from_secs_f32(1.0))),
+                spawn_asteroid.run_if(asteroid_spawn_timer),
+                update_asteroid_spawn_timer,
                 asteroid_movement,
                 check_player_collisions,
                 check_laser_collisions,
@@ -211,7 +214,11 @@ fn setup_life_counter(mut commands: Commands, windows: Query<&Window, With<Prima
 }
 
 fn setup_game_state(mut commands: Commands) {
-    commands.insert_resource(GameState { paused: false });
+    commands.insert_resource(GameState { 
+        asteroid_rate_increase_timer: Timer::new(Duration::from_secs_f32(15.0), TimerMode::Repeating), 
+        asteroid_spawn_timer: Timer::new(Duration::from_secs_f32(1.0), TimerMode::Repeating), 
+        paused: false 
+    });
 }
 
 fn aiming_handler(windows: Query<&Window, With<PrimaryWindow>>, mut player_sprite: Query<&mut Transform, With<Player>>) {
@@ -366,6 +373,20 @@ fn asteroid_movement(mut commands: Commands, windows: Query<&Window, With<Primar
             transform.rotate_z(asteroid.rotation);
         }
     }
+}
+
+fn update_asteroid_spawn_timer(time: Res<FixedTime>, mut game_state: ResMut<GameState>) {
+    game_state.asteroid_spawn_timer.tick(time.period);
+    game_state.asteroid_rate_increase_timer.tick(time.period);
+
+    if game_state.asteroid_rate_increase_timer.just_finished() {
+        game_state.asteroid_spawn_timer = Timer::new(game_state.asteroid_spawn_timer.duration().mul_f32(0.8), TimerMode::Repeating);
+        log::info!("Asteroid spawn rate is now {} seconds!", game_state.asteroid_spawn_timer.duration().as_secs_f32());
+    }
+}
+
+fn asteroid_spawn_timer(game_state: Res<GameState>) -> bool {
+    game_state.asteroid_spawn_timer.just_finished()
 }
 
 fn calculate_angle(pos1: Vec2, pos2: Vec2) -> f32 {

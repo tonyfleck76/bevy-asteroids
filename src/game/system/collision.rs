@@ -6,6 +6,8 @@ use crate::global::component::Scoreboard;
 
 use bevy::sprite::collide_aabb::collide;
 
+type LaserQualifiers = (With<Laser>, Without<Asteroid>);
+
 pub fn check_player_collisions(
     mut commands: Commands,
     asteroid_query: Query<(Entity, &Transform, &Asteroid), Without<Player>>,
@@ -30,7 +32,7 @@ pub fn check_laser_collisions(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
     asteroid_query: Query<(Entity, &Transform, &Asteroid), Without<Laser>>,
-    laser_query: Query<(Entity, &Transform), (With<Laser>, Without<Asteroid>)>
+    laser_query: Query<(Entity, &Transform), LaserQualifiers>
 ) {
     for (asteroid_entity, asteroid_transform, asteroid) in asteroid_query.iter() {
         for (laser_entity, laser_transform) in laser_query.iter() {

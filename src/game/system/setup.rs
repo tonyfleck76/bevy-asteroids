@@ -30,7 +30,7 @@ pub fn setup_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) 
                 "Score: ",
                 TextStyle { font: font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE }
             ),
-            TextSection::from_style(TextStyle { font: font.clone(), font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE })
+            TextSection::from_style(TextStyle { font, font_size: SCOREBOARD_FONT_SIZE, color: Color::WHITE })
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,

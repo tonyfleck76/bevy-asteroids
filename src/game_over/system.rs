@@ -15,7 +15,7 @@ pub fn show_game_over_screen(
     let italic_font: Handle<Font> = asset_server.load("fonts/ExcludedItalic.ttf");
     commands.spawn(TextBundle::from_section(
         "Game Over", 
-        TextStyle { font: italic_font.clone(), font_size: 60.0, color: Color::WHITE }
+        TextStyle { font: italic_font, font_size: 60.0, color: Color::WHITE }
     ).with_style(Style {
         display: Display::Flex,
         position_type: PositionType::Absolute,
@@ -44,7 +44,7 @@ pub fn show_game_over_screen(
 
     commands.spawn(TextBundle::from_section(
         "Click anywhere to play again.",
-        TextStyle { font: font.clone(), font_size: 24.0, color: Color::WHITE }
+        TextStyle { font, font_size: 24.0, color: Color::WHITE }
     ).with_style(Style {
         display: Display::Flex,
         position_type: PositionType::Absolute,

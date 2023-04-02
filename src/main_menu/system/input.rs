@@ -2,11 +2,10 @@ use bevy::prelude::*;
 
 use crate::{main_menu::constants::*, global::state::AppState};
 
+type InteractionQualifiers = (Changed<Interaction>, With<Button>);
+
 pub fn input(
-    mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<Button>),
-    >,
+    mut interaction_query: Query<(&Interaction, &mut BackgroundColor), InteractionQualifiers>,
     mut next_state: ResMut<NextState<AppState>>
 ) {
     for (interaction, mut color) in &mut interaction_query {

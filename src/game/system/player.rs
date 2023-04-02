@@ -9,18 +9,18 @@ use crate::global::event::GameOverEvent;
 use crate::global::state::AppState;
 use super::utils::normalize_coords_in_window;
 
-pub fn shoot(mut commands: Commands, mut fire_reader: EventReader<FireEvent>, player_transform: Query<&mut Transform, With<Player>>, windows: Query<&Window, With<PrimaryWindow>>, asset_server: Res<AssetServer>) {
+pub fn shoot(mut commands: Commands, mut fire_reader: EventReader<FireEvent>, mut player_transform: Query<&mut Transform, With<Player>>, windows: Query<&Window, With<PrimaryWindow>>, asset_server: Res<AssetServer>) {
     if fire_reader.iter().next().is_some() {
         let window = windows.get_single().unwrap();
         if let Some(_position) = window.cursor_position() {
-            let mut transform = player_transform.get_single().unwrap().clone();
+            let mut transform = *player_transform.get_single_mut().unwrap();
             transform.scale = Vec3::new(0.3, 0.3, 0.0);
 
             let trajectory = (_position - normalize_coords_in_window(window, transform.translation)).normalize();
 
             commands
                 .spawn(SpriteBundle {
-                    transform: transform,
+                    transform,
                     texture: asset_server.load("sprites/effect_yellow.png"),
                     ..Default::default()
                 })

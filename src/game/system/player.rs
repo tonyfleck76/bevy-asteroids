@@ -1,22 +1,29 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::game::event::*;
+use super::utils::normalize_coords_in_window;
 use crate::game::components::*;
 use crate::game::constants::*;
+use crate::game::event::*;
 use crate::global::component::*;
 use crate::global::event::GameOverEvent;
 use crate::global::state::AppState;
-use super::utils::normalize_coords_in_window;
 
-pub fn shoot(mut commands: Commands, mut fire_reader: EventReader<FireEvent>, mut player_transform: Query<&mut Transform, With<Player>>, windows: Query<&Window, With<PrimaryWindow>>, asset_server: Res<AssetServer>) {
+pub fn shoot(
+    mut commands: Commands,
+    mut fire_reader: EventReader<FireEvent>,
+    mut player_transform: Query<&mut Transform, With<Player>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    asset_server: Res<AssetServer>,
+) {
     if fire_reader.iter().next().is_some() {
         let window = windows.get_single().unwrap();
         if let Some(_position) = window.cursor_position() {
             let mut transform = *player_transform.get_single_mut().unwrap();
             transform.scale = Vec3::new(0.3, 0.3, 0.0);
 
-            let trajectory = (_position - normalize_coords_in_window(window, transform.translation)).normalize();
+            let trajectory =
+                (_position - normalize_coords_in_window(window, transform.translation)).normalize();
 
             commands
                 .spawn(SpriteBundle {
@@ -24,7 +31,9 @@ pub fn shoot(mut commands: Commands, mut fire_reader: EventReader<FireEvent>, mu
                     texture: asset_server.load("sprites/effect_yellow.png"),
                     ..Default::default()
                 })
-                .insert(Laser { velocity: Vec2::new(trajectory.x * LASER_SPEED, trajectory.y * LASER_SPEED) })
+                .insert(Laser {
+                    velocity: Vec2::new(trajectory.x * LASER_SPEED, trajectory.y * LASER_SPEED),
+                })
                 .insert(GameObject);
         }
     }
@@ -42,7 +51,7 @@ pub fn update_life_counter(
     mut life_query: Query<(Entity, &Life)>,
     asset_server: Res<AssetServer>,
     mut player_hit_reader: EventReader<PlayerHitEvent>,
-    mut game_over_writer: EventWriter<GameOverEvent>
+    mut game_over_writer: EventWriter<GameOverEvent>,
 ) {
     let lost_life_image: Handle<Image> = asset_server.load("sprites/lost_life.png");
     let window = windows.get_single().unwrap();
@@ -58,16 +67,21 @@ pub fn update_life_counter(
         for (entity, life) in life_query.iter_mut() {
             if life.counter > player.lives {
                 commands.entity(entity).despawn();
-                commands.spawn(SpriteBundle {
-                    transform: Transform {
-                        translation: Vec3::new((window.width() / 2.0) - (life.counter as f32 * LIFE_PADDING), (window.height() / 2.0) - LIFE_PADDING, 1.0),
-                        scale: Vec3::new(0.6, 0.6, 1.0),
+                commands
+                    .spawn(SpriteBundle {
+                        transform: Transform {
+                            translation: Vec3::new(
+                                (window.width() / 2.0) - (life.counter as f32 * LIFE_PADDING),
+                                (window.height() / 2.0) - LIFE_PADDING,
+                                1.0,
+                            ),
+                            scale: Vec3::new(0.6, 0.6, 1.0),
+                            ..Default::default()
+                        },
+                        texture: lost_life_image.clone(),
                         ..Default::default()
-                    },
-                    texture: lost_life_image.clone(),
-                    ..Default::default()
-                })
-                .insert(GameObject);
+                    })
+                    .insert(GameObject);
             }
         }
     }
@@ -87,7 +101,7 @@ pub fn player_invincibility_listener(
 
 pub fn player_respawn_timer(
     time: Res<FixedTime>,
-    mut player_query: Query<(&mut Sprite, &mut Player)>
+    mut player_query: Query<(&mut Sprite, &mut Player)>,
 ) {
     for (mut sprite, mut player) in player_query.iter_mut() {
         player.respawn_timer.tick(time.period);
@@ -99,9 +113,7 @@ pub fn player_respawn_timer(
     }
 }
 
-pub fn player_is_respawning(
-    player_query: Query<&Player>
-) -> bool {
+pub fn player_is_respawning(player_query: Query<&Player>) -> bool {
     if player_query.is_empty() {
         return false;
     }
@@ -110,9 +122,7 @@ pub fn player_is_respawning(
     player.invincible
 }
 
-pub fn player_is_not_respawning(
-    player_query: Query<&Player>
-) -> bool {
+pub fn player_is_not_respawning(player_query: Query<&Player>) -> bool {
     if player_query.is_empty() {
         return false;
     }
@@ -123,7 +133,7 @@ pub fn player_is_not_respawning(
 
 pub fn game_over_listener(
     mut next_state: ResMut<NextState<AppState>>,
-    mut game_over_reader: EventReader<GameOverEvent>
+    mut game_over_reader: EventReader<GameOverEvent>,
 ) {
     if game_over_reader.iter().next().is_some() {
         next_state.set(AppState::GameOver);

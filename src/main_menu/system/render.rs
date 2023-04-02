@@ -4,20 +4,28 @@ use crate::global::component::GameObject;
 use crate::main_menu::constants::*;
 
 pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(TextBundle::from_section(
-        "'Stroids", 
-        TextStyle { font: asset_server.load("fonts/ExcludedItalic.ttf"), font_size: 60.0, color: Color::WHITE }
-    ).with_style(Style {
-        display: Display::Flex,
-        position_type: PositionType::Absolute,
-        position: UiRect {
-            top: Val::Px(100.0),
-            left: Val::Px(250.0),
-            ..default()
-        },
-        ..default()
-    }))
-    .insert(GameObject);
+    commands
+        .spawn(
+            TextBundle::from_section(
+                "'Stroids",
+                TextStyle {
+                    font: asset_server.load("fonts/ExcludedItalic.ttf"),
+                    font_size: 60.0,
+                    color: Color::WHITE,
+                },
+            )
+            .with_style(Style {
+                display: Display::Flex,
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    top: Val::Px(100.0),
+                    left: Val::Px(250.0),
+                    ..default()
+                },
+                ..default()
+            }),
+        )
+        .insert(GameObject);
 
     commands
         .spawn(NodeBundle {
@@ -44,15 +52,16 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Play",
-                        TextStyle {
-                            font: asset_server.load("fonts/Excluded.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.9, 0.9, 0.9),
-                        },
-                    ))
-                    .insert(GameObject);
+                    parent
+                        .spawn(TextBundle::from_section(
+                            "Play",
+                            TextStyle {
+                                font: asset_server.load("fonts/Excluded.ttf"),
+                                font_size: 40.0,
+                                color: Color::rgb(0.9, 0.9, 0.9),
+                            },
+                        ))
+                        .insert(GameObject);
                 })
                 .insert(GameObject);
         })

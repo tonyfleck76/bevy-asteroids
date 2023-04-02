@@ -5,5 +5,5 @@ pub struct GameObject;
 
 #[derive(Resource)]
 pub struct Scoreboard {
-    pub score: usize
+    pub score: usize,
 }

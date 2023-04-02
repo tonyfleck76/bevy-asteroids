@@ -1,5 +1,5 @@
+use crate::{clear_game_objects, global::state::AppState};
 use bevy::prelude::*;
-use crate::{global::state::AppState, clear_game_objects};
 
 use super::system::*;
 

@@ -1,15 +1,15 @@
-mod global;
-mod main_menu;
 mod game;
 mod game_over;
+mod global;
+mod main_menu;
 
-use global::component::GameObject;
-use main_menu::plugin::MainMenuPlugin;
+use game::event::*;
 use game::plugin::GamePlugin;
 use game_over::plugin::GameOverPlugin;
-use global::state::AppState;
+use global::component::GameObject;
 use global::event::*;
-use game::event::*;
+use global::state::AppState;
+use main_menu::plugin::MainMenuPlugin;
 
 use bevy::prelude::*;
 
@@ -45,10 +45,7 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn clear_game_objects (
-    mut commands: Commands,
-    entities_query: Query<Entity, With<GameObject>>
-) {
+fn clear_game_objects(mut commands: Commands, entities_query: Query<Entity, With<GameObject>>) {
     for entity in entities_query.iter() {
         commands.entity(entity).despawn();
     }

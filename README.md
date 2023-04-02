@@ -7,3 +7,5 @@ The game contains a basic main menu, the play screen, a pause option, and a game
 The game is controlled entirely with your mouse. Move your mouse to aim, left click to shoot.
 
 Binaries can be found on the releases page, but if you'd like to build the source, you can do so with `cargo run`.
+
+Assets are from [Kenny](http://www.kenney.nl/)'s Simple Space Pack.

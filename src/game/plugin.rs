@@ -51,10 +51,7 @@ impl Plugin for GamePlugin {
                     .in_set(GameSet::Movement),
             )
             .add_systems(
-                (
-                    aiming_handler,
-                    shooting_handler.run_if(player_is_not_respawning),
-                )
+                (aiming_handler, shooting_handler)
                     .chain()
                     .distributive_run_if(is_running)
                     .in_set(OnUpdate(AppState::InGame))
@@ -81,7 +78,11 @@ impl Plugin for GamePlugin {
                     .in_set(GameSet::Updates)
                     .distributive_run_if(is_running),
             )
-            .add_system(pause_handler.in_set(OnUpdate(AppState::InGame)))
+            .add_system(
+                pause_handler
+                    .before(GameSet::Updates)
+                    .in_set(OnUpdate(AppState::InGame)),
+            )
             .add_system(clear_game_objects.in_schedule(OnExit(AppState::InGame)))
             .configure_set(
                 // Run systems in the Movement set before systems in the CollisionDetection set

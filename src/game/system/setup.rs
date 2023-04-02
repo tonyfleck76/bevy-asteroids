@@ -51,6 +51,7 @@ pub fn setup_scoreboard(mut commands: Commands, asset_server: Res<AssetServer>) 
                 ..default()
             }),
         )
+        .insert(ScoreBoardText)
         .insert(GameObject);
     commands.insert_resource(Scoreboard { score: 0 })
 }

@@ -59,3 +59,6 @@ pub struct Life {
 
 #[derive(Component)]
 pub struct PausedText;
+
+#[derive(Component)]
+pub struct ScoreBoardText;

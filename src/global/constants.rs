@@ -1,0 +1,1 @@
+pub const SCOREBOARD_FONT_SIZE: f32 = 40.0;

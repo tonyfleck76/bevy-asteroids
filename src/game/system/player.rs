@@ -1,0 +1,83 @@
+use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+
+use crate::game::event::*;
+use crate::game::components::*;
+use crate::game::constants::*;
+use crate::global::component::*;
+use crate::global::event::GameOverEvent;
+use crate::global::state::AppState;
+use super::utils::normalize_coords_in_window;
+
+pub fn shoot(mut commands: Commands, mut fire_reader: EventReader<FireEvent>, player_transform: Query<&mut Transform, With<Player>>, windows: Query<&Window, With<PrimaryWindow>>, asset_server: Res<AssetServer>) {
+    if fire_reader.iter().next().is_some() {
+        let window = windows.get_single().unwrap();
+        if let Some(_position) = window.cursor_position() {
+            let mut transform = player_transform.get_single().unwrap().clone();
+            transform.scale = Vec3::new(0.3, 0.3, 0.0);
+
+            let trajectory = (_position - normalize_coords_in_window(window, transform.translation)).normalize();
+
+            commands
+                .spawn(SpriteBundle {
+                    transform: transform,
+                    texture: asset_server.load("sprites/effect_yellow.png"),
+                    ..Default::default()
+                })
+                .insert(Laser { velocity: Vec2::new(trajectory.x * LASER_SPEED, trajectory.y * LASER_SPEED) })
+                .insert(GameObject);
+        }
+    }
+}
+
+pub fn update_scoreboard(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+    let mut text = query.single_mut();
+    text.sections[1].value = scoreboard.score.to_string();
+}
+
+pub fn update_life_counter(
+    mut commands: Commands,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mut player_query: Query<&mut Player>,
+    mut life_query: Query<(Entity, &Life)>,
+    asset_server: Res<AssetServer>,
+    mut player_hit_reader: EventReader<PlayerHitEvent>,
+    mut game_over_writer: EventWriter<GameOverEvent>
+) {
+    let lost_life_image: Handle<Image> = asset_server.load("sprites/lost_life.png");
+    let window = windows.get_single().unwrap();
+
+    if player_hit_reader.iter().next().is_some() {
+        let mut player = player_query.get_single_mut().unwrap();
+        player.lives -= 1;
+
+        if player.lives == 0 {
+            game_over_writer.send(GameOverEvent);
+        }
+
+        for (entity, life) in life_query.iter_mut() {
+            if life.counter > player.lives {
+                commands.entity(entity).despawn();
+                commands.spawn(SpriteBundle {
+                    transform: Transform {
+                        translation: Vec3::new((window.width() / 2.0) - (life.counter as f32 * LIFE_PADDING), (window.height() / 2.0) - LIFE_PADDING, 1.0),
+                        scale: Vec3::new(0.6, 0.6, 1.0),
+                        ..Default::default()
+                    },
+                    texture: lost_life_image.clone(),
+                    ..Default::default()
+                })
+                .insert(GameObject);
+            }
+        }
+    }
+}
+
+pub fn game_over_listener(
+    mut next_state: ResMut<NextState<AppState>>,
+    mut game_over_reader: EventReader<GameOverEvent>
+) {
+    if game_over_reader.iter().next().is_some() {
+        next_state.set(AppState::GameOver);
+    }
+}

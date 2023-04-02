@@ -9,6 +9,7 @@ use super::system::player::*;
 use super::system::asteroid::*;
 
 use super::event::*;
+use crate::clear_game_objects;
 use crate::global::state::AppState;
 
 pub struct GamePlugin;
@@ -20,9 +21,9 @@ impl Plugin for GamePlugin {
             .add_event::<FireEvent>()
             .add_event::<PlayerHitEvent>()
             // Setup new game
+            .add_startup_system(setup_game_state)
             .add_systems(
                 (
-                    setup_game_state,
                     spawn_player,
                     setup_scoreboard,
                     setup_life_counter
@@ -45,10 +46,11 @@ impl Plugin for GamePlugin {
                     update_life_counter,
                     game_over_listener
                 )
-                .distributive_run_if(is_running)
                 .in_set(OnUpdate(AppState::InGame))
+                .distributive_run_if(is_running)
             )
-            .add_system(pause_handler.in_set(OnUpdate(AppState::InGame)));
+            .add_system(pause_handler.in_set(OnUpdate(AppState::InGame)))
+            .add_system(clear_game_objects.in_schedule(OnExit(AppState::InGame)));
     }
 }
 

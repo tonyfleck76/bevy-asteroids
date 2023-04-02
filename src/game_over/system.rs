@@ -5,14 +5,9 @@ use crate::global::{component::{GameObject, Scoreboard}, state::AppState, consta
 pub fn show_game_over_screen(
     mut commands: Commands,
     scoreboard: Res<Scoreboard>,
-    entities_query: Query<Entity, With<GameObject>>,
     asset_server: Res<AssetServer>
 ) {
     let score = scoreboard.score;
-
-    for entity in entities_query.iter() {
-        commands.entity(entity).despawn();
-    }
 
     commands.remove_resource::<Scoreboard>();
 
@@ -69,14 +64,5 @@ pub fn play_again_listener(
 ) {
     if buttons.just_pressed(MouseButton::Left) {
         next_state.set(AppState::InGame);
-    }
-}
-
-pub fn clear_game_over (
-    mut commands: Commands,
-    entities_query: Query<Entity, With<GameObject>>
-) {
-    for entity in entities_query.iter() {
-        commands.entity(entity).despawn();
     }
 }

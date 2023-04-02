@@ -1,7 +1,10 @@
 mod global;
+mod main_menu;
 mod game;
 mod game_over;
 
+use global::component::GameObject;
+use main_menu::plugin::MainMenuPlugin;
 use game::plugin::GamePlugin;
 use game_over::plugin::GameOverPlugin;
 use global::state::AppState;
@@ -32,6 +35,7 @@ fn main() {
         .add_event::<GameOverEvent>()
         // Base systems
         .add_startup_system(setup_camera)
+        .add_plugin(MainMenuPlugin)
         .add_plugin(GamePlugin)
         .add_plugin(GameOverPlugin)
         .run();
@@ -39,4 +43,13 @@ fn main() {
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
+}
+
+fn clear_game_objects (
+    mut commands: Commands,
+    entities_query: Query<Entity, With<GameObject>>
+) {
+    for entity in entities_query.iter() {
+        commands.entity(entity).despawn();
+    }
 }

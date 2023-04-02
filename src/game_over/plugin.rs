@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::global::state::AppState;
+use crate::{global::state::AppState, clear_game_objects};
 
 use super::system::*;
 
@@ -13,6 +13,6 @@ impl Plugin for GameOverPlugin {
             // Game Over Listener
             .add_system(play_again_listener.in_set(OnUpdate(AppState::GameOver)))
             // Clean up game over
-            .add_system(clear_game_over.in_schedule(OnExit(AppState::GameOver)));
+            .add_system(clear_game_objects.in_schedule(OnExit(AppState::GameOver)));
     }
 }

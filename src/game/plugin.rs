@@ -55,7 +55,7 @@ impl Plugin for GamePlugin {
                 .in_set(GameSet::Movement)
             )
             .add_systems(
-                (aiming_handler, shooting_handler)
+                (aiming_handler, shooting_handler.run_if(player_is_not_respawning))
                 .chain()
                 .distributive_run_if(is_running)
                 .in_set(OnUpdate(AppState::InGame))

@@ -110,6 +110,17 @@ pub fn player_is_respawning(
     player.invincible
 }
 
+pub fn player_is_not_respawning(
+    player_query: Query<&Player>
+) -> bool {
+    if player_query.is_empty() {
+        return false;
+    }
+
+    let player = player_query.get_single().unwrap();
+    !player.invincible
+}
+
 pub fn game_over_listener(
     mut next_state: ResMut<NextState<AppState>>,
     mut game_over_reader: EventReader<GameOverEvent>

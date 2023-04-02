@@ -6,11 +6,11 @@ use crate::game::{event::FireEvent, components::*};
 
 use super::utils::{normalize_coords_in_window, calculate_angle};
 
-pub fn aiming_handler(windows: Query<&Window, With<PrimaryWindow>>, mut player_sprite: Query<&mut Transform, With<Player>>) {
+pub fn aiming_handler(windows: Query<&Window, With<PrimaryWindow>>, mut player_transform_query: Query<&mut Transform, With<Player>>) {
     let window = windows.get_single().unwrap();
 
     if let Some(_position) = window.cursor_position() {
-        for mut transform in player_sprite.iter_mut() {
+        for mut transform in player_transform_query.iter_mut() {
             let player_pos = normalize_coords_in_window(window, transform.translation);
             let angle = calculate_angle(_position, player_pos);
 

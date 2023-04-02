@@ -23,7 +23,6 @@ enum GameSet {
     Updates,
 }
 
-
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app
@@ -74,7 +73,9 @@ impl Plugin for GamePlugin {
                     update_asteroid_spawn_timer,
                     update_scoreboard,
                     update_life_counter,
-                    game_over_listener
+                    game_over_listener,
+                    player_invincibility_listener,
+                    player_respawn_timer.run_if(player_is_respawning)
                 )
                 .chain()
                 .in_set(OnUpdate(AppState::InGame))

@@ -73,6 +73,43 @@ pub fn update_life_counter(
     }
 }
 
+pub fn player_invincibility_listener(
+    mut player_query: Query<(&mut Sprite, &mut Player)>,
+    mut player_hit_reader: EventReader<PlayerHitEvent>,
+) {
+    if player_hit_reader.iter().next().is_some() {
+        for (mut sprite, mut player) in player_query.iter_mut() {
+            sprite.color.set_a(0.3);
+            player.invincible = true;
+        }
+    }
+}
+
+pub fn player_respawn_timer(
+    time: Res<FixedTime>,
+    mut player_query: Query<(&mut Sprite, &mut Player)>
+) {
+    for (mut sprite, mut player) in player_query.iter_mut() {
+        player.respawn_timer.tick(time.period);
+        if player.respawn_timer.just_finished() {
+            sprite.color.set_a(1.0);
+            player.invincible = false;
+            player.respawn_timer = Timer::from_seconds(RESPAWN_DURATION, TimerMode::Once);
+        }
+    }
+}
+
+pub fn player_is_respawning(
+    player_query: Query<&Player>
+) -> bool {
+    if player_query.is_empty() {
+        return false;
+    }
+
+    let player = player_query.get_single().unwrap();
+    player.invincible
+}
+
 pub fn game_over_listener(
     mut next_state: ResMut<NextState<AppState>>,
     mut game_over_reader: EventReader<GameOverEvent>

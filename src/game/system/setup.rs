@@ -18,7 +18,7 @@ pub fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
             texture: asset_server.load("sprites/ship_sidesA.png"),
             ..Default::default()
         })
-        .insert(Player { lives: PLAYER_LIVES })
+        .insert(Player::default() )
         .insert(GameObject);
 }
 

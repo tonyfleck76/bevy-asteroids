@@ -1,6 +1,7 @@
 use bevy::ui::Val;
 
 pub const PLAYER_LIVES: u8 = 3;
+pub const RESPAWN_DURATION: f32 = 5.0;
 
 pub const LASER_SPEED: f32 = 10.0;
 

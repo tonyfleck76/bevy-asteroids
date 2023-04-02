@@ -6,7 +6,18 @@ pub trait HitBox {
 
 #[derive(Component)]
 pub struct Player {
-    pub lives: u8
+    pub lives: u8,
+    pub invincible: bool,
+    pub respawn_timer: Timer
+}
+impl Default for Player {
+    fn default() -> Player {
+        Player {
+            lives: 3,
+            invincible: false,
+            respawn_timer: Timer::from_seconds(5.0, TimerMode::Once)
+        }
+    }
 }
 
 impl HitBox for Player {

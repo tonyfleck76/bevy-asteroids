@@ -19,7 +19,9 @@ pub fn check_player_collisions(
 
         if player_collision.is_some() {
             commands.entity(asteroid_entity).despawn();
-            player_hit_writer.send(PlayerHitEvent);
+            if !player.invincible {
+                player_hit_writer.send(PlayerHitEvent);
+            }
         }
     }
 }

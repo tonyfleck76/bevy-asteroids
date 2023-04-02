@@ -14,6 +14,16 @@ use crate::global::state::AppState;
 
 pub struct GamePlugin;
 
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+enum GameSet {
+    Input,
+    Spawning,
+    Movement,
+    Collision,
+    Updates,
+}
+
+
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app
@@ -32,25 +42,51 @@ impl Plugin for GamePlugin {
             )
             // Update in game
             .add_systems(
+                (check_laser_collisions, check_player_collisions)
+                .chain()
+                .distributive_run_if(is_running)
+                .in_set(OnUpdate(AppState::InGame))
+                .in_set(GameSet::Collision)
+            )
+            .add_systems(
+                (laser_movement, asteroid_movement)
+                .chain()
+                .distributive_run_if(is_running)
+                .in_set(OnUpdate(AppState::InGame))
+                .in_set(GameSet::Movement)
+            )
+            .add_systems(
+                (aiming_handler, shooting_handler)
+                .chain()
+                .distributive_run_if(is_running)
+                .in_set(OnUpdate(AppState::InGame))
+                .in_set(GameSet::Input)
+            )
+            .add_systems(
+                (shoot, spawn_asteroid.run_if(asteroid_spawn_timer))
+                .chain()
+                .distributive_run_if(is_running)
+                .in_set(OnUpdate(AppState::InGame))
+                .in_set(GameSet::Spawning)
+            )
+            .add_systems(
                 (
-                    aiming_handler,
-                    shooting_handler,
-                    shoot,
-                    laser_movement,
-                    spawn_asteroid.run_if(asteroid_spawn_timer),
                     update_asteroid_spawn_timer,
-                    asteroid_movement,
-                    check_player_collisions,
-                    check_laser_collisions,
                     update_scoreboard,
                     update_life_counter,
                     game_over_listener
                 )
+                .chain()
                 .in_set(OnUpdate(AppState::InGame))
+                .in_set(GameSet::Updates)
                 .distributive_run_if(is_running)
             )
             .add_system(pause_handler.in_set(OnUpdate(AppState::InGame)))
-            .add_system(clear_game_objects.in_schedule(OnExit(AppState::InGame)));
+            .add_system(clear_game_objects.in_schedule(OnExit(AppState::InGame)))
+            .configure_set(
+                // Run systems in the Movement set before systems in the CollisionDetection set
+                GameSet::Movement.before(GameSet::Collision)
+            );
     }
 }
 
